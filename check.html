@@ -82,8 +82,8 @@
   .verdict-a{background:rgba(59,130,246,.15);color:var(--accent-a);}
   .verdict-tie{background:rgba(245,158,11,.15);color:var(--accent-gold);}
   .verdict-b{background:rgba(16,185,129,.15);color:var(--accent-b);}
-  .record-q{color:var(--text);margin-bottom:4px;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;line-clamp:2;-webkit-box-orient:vertical;line-height:1.5;}
-  .record-note{color:var(--text-dim);font-style:italic;overflow:hidden;display:-webkit-box;-webkit-line-clamp:1;line-clamp:1;-webkit-box-orient:vertical;}
+  .record-q{color:var(--text);margin-bottom:4px;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;line-height:1.5;}
+  .record-note{color:var(--text-dim);font-style:italic;overflow:hidden;display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;}
   .record-time{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--text-dim);margin-top:4px;}
   .empty-state{text-align:center;padding:40px 20px;color:var(--text-dim);font-size:12px;line-height:2;}
   .sys-toggle{font-size:11px;color:var(--text-dim);cursor:pointer;text-decoration:underline dotted;font-family:'JetBrains Mono',monospace;background:none;border:none;padding:0;transition:color .15s;}
@@ -240,27 +240,21 @@ async function callModel(side){
       if(sys)msgs.push({role:'system',content:sys});
       msgs.push({role:'user',content:prompt});
       const r=await fetch(`${base}/api/chat`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:model||'llama3',messages:msgs,stream:true})});
-      if(!r.ok) throw new Error(`HTTP ${r.status}: ${await r.text()}`);
       const reader=r.body.getReader();const dec=new TextDecoder();
       while(true){const{done,value}=await reader.read();if(done)break;
-        const lines=dec.decode(value).trim().split('\n');
-        for(const line of lines){if(!line.trim())continue;try{const j=JSON.parse(line);if(j.message?.content){result+=j.message.content;resp.textContent=result;}}catch{}}}
+        for(const line of dec.decode(value).split('\n')){if(!line.trim())continue;try{const j=JSON.parse(line);if(j.message?.content){result+=j.message.content;resp.textContent=result;}}catch{}}}
     } else if(type==='openai'){
       const base=url||'https://api.openai.com';
       const msgs=[];if(sys)msgs.push({role:'system',content:sys});msgs.push({role:'user',content:prompt});
       const r=await fetch(`${base}/v1/chat/completions`,{method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${key}`},body:JSON.stringify({model:model||'gpt-4o',messages:msgs,stream:true})});
-      if(!r.ok) throw new Error(`HTTP ${r.status}: ${await r.text()}`);
       const reader=r.body.getReader();const dec=new TextDecoder();
       while(true){const{done,value}=await reader.read();if(done)break;
-        const lines=dec.decode(value).trim().split('\n');
-        for(const line of lines){if(!line.startsWith('data: ')||line.includes('[DONE]'))continue;try{const j=JSON.parse(line.slice(6));const content=j.choices?.[0]?.delta?.content||'';result+=content;resp.textContent=result;}catch(e){console.warn('Failed to parse OpenAI stream line:',line);}}}
+        for(const line of dec.decode(value).split('\n')){if(!line.startsWith('data: ')||line.includes('[DONE]'))continue;try{const j=JSON.parse(line.slice(6));result+=j.choices?.[0]?.delta?.content||'';resp.textContent=result;}catch{}}}
     } else {
       const base=url||'https://api.anthropic.com';
       const body={model:model||'claude-sonnet-4-20250514',max_tokens:2048,messages:[{role:'user',content:prompt}],stream:true};
       if(sys)body.system=sys;
-      const headers={'Content-Type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01'};
-      const r=await fetch(`${base}/v1/messages`,{method:'POST',headers:headers,body:JSON.stringify(body)});
-      if(!r.ok) throw new Error(`HTTP ${r.status}: ${await r.text()}`);
+      const r=await fetch(`${base}/v1/messages`,{method:'POST',headers:{'Content-Type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify(body)});
       const reader=r.body.getReader();const dec=new TextDecoder();
       while(true){const{done,value}=await reader.read();if(done)break;
         for(const line of dec.decode(value).split('\n')){if(!line.startsWith('data: '))continue;try{const j=JSON.parse(line.slice(6));if(j.delta?.text){result+=j.delta.text;resp.textContent=result;}}catch{}}}
