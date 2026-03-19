@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>模型评测对比工具</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Noto+Sans+SC:wght@300;400;500;700&display=swap');
+  :root {
+    --bg:#0f1117;--panel:#161b27;--border:#2a3145;
+    --accent-a:#3b82f6;--accent-b:#10b981;--accent-gold:#f59e0b;
+    --text:#e2e8f0;--text-dim:#64748b;--text-mid:#94a3b8;
+    --good:#10b981;--bad:#ef4444;--radius:10px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{background:var(--bg);color:var(--text);font-family:'Noto Sans SC',sans-serif;font-size:14px;height:100vh;display:flex;flex-direction:column;overflow:hidden;}
+  header{display:flex;align-items:center;justify-content:space-between;padding:12px 20px;border-bottom:1px solid var(--border);background:var(--panel);flex-shrink:0;}
+  .logo{display:flex;align-items:center;gap:10px;font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:600;letter-spacing:.05em;}
+  .logo-dot{width:8px;height:8px;border-radius:50%;background:var(--accent-a);box-shadow:0 0 8px var(--accent-a);animation:pulse 2s infinite;}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+  .header-actions{display:flex;gap:8px;align-items:center;}
+  .record-count{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text-dim);padding:4px 10px;border:1px solid var(--border);border-radius:20px;}
+  .btn{padding:6px 14px;border-radius:6px;border:none;cursor:pointer;font-family:'Noto Sans SC',sans-serif;font-size:12px;font-weight:500;transition:all .15s;}
+  .btn-export{background:var(--accent-gold);color:#000;}
+  .btn-export:hover{filter:brightness(1.1);transform:translateY(-1px);}
+  .btn-secondary{background:transparent;color:var(--text-dim);border:1px solid var(--border);}
+  .btn-secondary:hover{border-color:var(--text-mid);color:var(--text);}
+  .config-bar{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--border);border-bottom:1px solid var(--border);flex-shrink:0;}
+  .model-config{background:var(--panel);padding:10px 16px;display:flex;align-items:center;gap:10px;}
+  .model-badge{font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:600;padding:3px 8px;border-radius:4px;flex-shrink:0;}
+  .badge-a{background:rgba(59,130,246,.15);color:var(--accent-a);border:1px solid rgba(59,130,246,.3);}
+  .badge-b{background:rgba(16,185,129,.15);color:var(--accent-b);border:1px solid rgba(16,185,129,.3);}
+  .config-row{display:flex;gap:6px;flex:1;align-items:center;}
+  select,input[type=text],input[type=password]{background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px 10px;font-size:12px;font-family:'Noto Sans SC',sans-serif;outline:none;transition:border-color .15s;}
+  select:focus,input:focus{border-color:var(--accent-a);}
+  .select-type{width:95px;}.input-url{flex:1;min-width:0;}.input-model{width:120px;}.input-key{width:130px;font-family:'JetBrains Mono',monospace;font-size:11px;}
+  .main{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--border);flex:1;overflow:hidden;}
+  .panel{background:var(--panel);display:flex;flex-direction:column;overflow:hidden;}
+  .panel-header{display:flex;align-items:center;justify-content:space-between;padding:8px 14px;border-bottom:1px solid var(--border);flex-shrink:0;}
+  .panel-label{font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:600;color:var(--text-dim);letter-spacing:.08em;text-transform:uppercase;}
+  .status-dot{width:6px;height:6px;border-radius:50%;background:var(--border);transition:all .3s;}
+  .status-dot.loading{background:var(--accent-gold);box-shadow:0 0 6px var(--accent-gold);animation:pulse .8s infinite;}
+  .status-dot.done-a{background:var(--accent-a);box-shadow:0 0 6px var(--accent-a);}
+  .status-dot.done-b{background:var(--accent-b);box-shadow:0 0 6px var(--accent-b);}
+  .response-area{flex:1;overflow-y:auto;padding:14px;font-size:13px;line-height:1.75;color:var(--text-mid);white-space:pre-wrap;word-break:break-word;}
+  .response-area.empty::before{content:attr(data-placeholder);color:var(--text-dim);font-style:italic;font-size:12px;}
+  .response-area::-webkit-scrollbar{width:4px;}.response-area::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
+  .bottom{border-top:1px solid var(--border);background:var(--panel);padding:12px 16px;display:flex;flex-direction:column;gap:10px;flex-shrink:0;}
+  .prompt-row{display:flex;gap:8px;align-items:flex-end;}
+  .prompt-input-wrap{flex:1;}
+  .field-label{font-size:10px;color:var(--text-dim);font-family:'JetBrains Mono',monospace;letter-spacing:.06em;text-transform:uppercase;margin-bottom:4px;}
+  textarea{width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:8px 12px;font-size:13px;font-family:'Noto Sans SC',sans-serif;resize:none;outline:none;line-height:1.5;transition:border-color .15s;}
+  textarea:focus{border-color:var(--accent-a);}
+  .send-btn{background:var(--accent-a);color:#fff;border:none;border-radius:8px;padding:0 20px;height:60px;cursor:pointer;font-size:13px;font-family:'Noto Sans SC',sans-serif;font-weight:500;transition:all .15s;white-space:nowrap;flex-shrink:0;}
+  .send-btn:hover{filter:brightness(1.15);transform:translateY(-1px);}
+  .send-btn:disabled{opacity:.4;cursor:not-allowed;transform:none;}
+  .eval-row{display:flex;gap:8px;align-items:flex-end;}
+  .eval-section{display:flex;flex-direction:column;gap:4px;}
+  .gsb-group{display:flex;gap:4px;}
+  .gsb-btn{padding:5px 12px;border-radius:6px;border:1px solid var(--border);background:transparent;cursor:pointer;font-size:12px;font-family:'Noto Sans SC',sans-serif;font-weight:500;transition:all .15s;color:var(--text-dim);}
+  .gsb-btn:hover{transform:translateY(-1px);}
+  .gsb-btn.active-a{background:rgba(59,130,246,.2);border-color:var(--accent-a);color:var(--accent-a);}
+  .gsb-btn.active-tie{background:rgba(245,158,11,.2);border-color:var(--accent-gold);color:var(--accent-gold);}
+  .gsb-btn.active-b{background:rgba(16,185,129,.2);border-color:var(--accent-b);color:var(--accent-b);}
+  .tag-select{width:110px;height:31px;}
+  .eval-note{flex:1;min-height:31px;height:31px;resize:none;}
+  .save-btn{background:transparent;border:1px solid var(--accent-gold);color:var(--accent-gold);border-radius:8px;padding:0 16px;height:31px;cursor:pointer;font-size:12px;font-family:'Noto Sans SC',sans-serif;transition:all .15s;white-space:nowrap;flex-shrink:0;}
+  .save-btn:hover{background:rgba(245,158,11,.15);transform:translateY(-1px);}
+  .records-panel{position:fixed;right:0;top:0;bottom:0;width:380px;background:var(--panel);border-left:1px solid var(--border);display:flex;flex-direction:column;transform:translateX(100%);transition:transform .25s cubic-bezier(.4,0,.2,1);z-index:100;}
+  .records-panel.open{transform:translateX(0);}
+  .records-header{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--border);}
+  .records-title{font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:600;letter-spacing:.06em;}
+  .close-btn{background:transparent;border:none;color:var(--text-dim);cursor:pointer;font-size:16px;padding:2px 6px;border-radius:4px;transition:color .15s;}
+  .close-btn:hover{color:var(--text);}
+  .records-list{flex:1;overflow-y:auto;padding:8px;}
+  .records-list::-webkit-scrollbar{width:4px;}.records-list::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
+  .record-item{border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-bottom:6px;font-size:12px;background:var(--bg);transition:border-color .15s;}
+  .record-item:hover{border-color:var(--text-dim);}
+  .record-meta{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;}
+  .record-tag{font-family:'JetBrains Mono',monospace;font-size:10px;padding:2px 6px;border-radius:3px;background:rgba(100,116,139,.15);color:var(--text-dim);border:1px solid var(--border);}
+  .record-verdict{font-size:11px;font-weight:600;padding:2px 8px;border-radius:4px;}
+  .verdict-a{background:rgba(59,130,246,.15);color:var(--accent-a);}
+  .verdict-tie{background:rgba(245,158,11,.15);color:var(--accent-gold);}
+  .verdict-b{background:rgba(16,185,129,.15);color:var(--accent-b);}
+  .record-q{color:var(--text);margin-bottom:4px;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;line-clamp:2;-webkit-box-orient:vertical;line-height:1.5;}
+  .record-note{color:var(--text-dim);font-style:italic;overflow:hidden;display:-webkit-box;-webkit-line-clamp:1;line-clamp:1;-webkit-box-orient:vertical;}
+  .record-time{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--text-dim);margin-top:4px;}
+  .empty-state{text-align:center;padding:40px 20px;color:var(--text-dim);font-size:12px;line-height:2;}
+  .sys-toggle{font-size:11px;color:var(--text-dim);cursor:pointer;text-decoration:underline dotted;font-family:'JetBrains Mono',monospace;background:none;border:none;padding:0;transition:color .15s;}
+  .sys-toggle:hover{color:var(--text);}
+  .sys-prompt-area{display:none;margin-top:4px;}
+  .sys-prompt-area.visible{display:block;}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-dot"></div>
+    EVAL BENCH · 模型评测对比工具
+  </div>
+  <div class="header-actions">
+    <span class="record-count" id="recordCount">0 条记录</span>
+    <button class="btn btn-secondary" onclick="toggleRecords()">📋 记录列表</button>
+    <button class="btn btn-export" onclick="exportCSV()">⬇ 导出 Excel</button>
+    <button class="btn btn-secondary" onclick="clearAll()">清空</button>
+  </div>
+</header>
+
+<div class="config-bar">
+  <div class="model-config">
+    <span class="model-badge badge-a">MODEL A</span>
+    <div class="config-row">
+      <select class="select-type" id="typeA" onchange="updatePlaceholder('A')">
+        <option value="ollama">Ollama</option>
+        <option value="openai">OpenAI兼容</option>
+        <option value="anthropic">Anthropic</option>
+      </select>
+      <input type="text" class="input-url" id="urlA" placeholder="http://localhost:11434" />
+      <input type="text" class="input-model" id="modelA" placeholder="模型名称" />
+      <input type="password" class="input-key" id="keyA" placeholder="API Key（可选）" />
+    </div>
+  </div>
+  <div class="model-config">
+    <span class="model-badge badge-b">MODEL B</span>
+    <div class="config-row">
+      <select class="select-type" id="typeB" onchange="updatePlaceholder('B')">
+        <option value="ollama">Ollama</option>
+        <option value="openai">OpenAI兼容</option>
+        <option value="anthropic">Anthropic</option>
+      </select>
+      <input type="text" class="input-url" id="urlB" placeholder="http://localhost:11434" />
+      <input type="text" class="input-model" id="modelB" placeholder="模型名称" />
+      <input type="password" class="input-key" id="keyB" placeholder="API Key（可选）" />
+    </div>
+  </div>
+</div>
+
+<div class="main">
+  <div class="panel">
+    <div class="panel-header">
+      <span class="panel-label">Model A · 输出结果</span>
+      <span class="status-dot" id="dotA"></span>
+    </div>
+    <div class="response-area empty" id="respA" data-placeholder="等待发送问题..."></div>
+  </div>
+  <div class="panel">
+    <div class="panel-header">
+      <span class="panel-label">Model B · 输出结果</span>
+      <span class="status-dot" id="dotB"></span>
+    </div>
+    <div class="response-area empty" id="respB" data-placeholder="等待发送问题..."></div>
+  </div>
+</div>
+
+<div class="bottom">
+  <div>
+    <button class="sys-toggle" onclick="document.getElementById('sysArea').classList.toggle('visible')">⚙ 系统提示词（可选，两个模型共用）</button>
+    <div class="sys-prompt-area" id="sysArea">
+      <textarea id="sysPrompt" style="min-height:44px" placeholder="输入系统提示词..."></textarea>
+    </div>
+  </div>
+
+  <div class="prompt-row">
+    <div class="prompt-input-wrap">
+      <div class="field-label">问题输入 / Prompt（Ctrl+Enter 发送）</div>
+      <textarea id="promptInput" style="min-height:60px" placeholder="输入你的问题，点击发送后两个模型同时响应..." onkeydown="if(event.key==='Enter'&&(event.ctrlKey||event.metaKey))sendPrompt()"></textarea>
+    </div>
+    <button class="send-btn" id="sendBtn" onclick="sendPrompt()">▶ 发 送</button>
+  </div>
+
+  <div class="eval-row">
+    <div class="eval-section">
+      <div class="field-label">评估结论</div>
+      <div class="gsb-group">
+        <button class="gsb-btn" data-val="A" onclick="setVerdict('A')">A 更好</button>
+        <button class="gsb-btn" data-val="=" onclick="setVerdict('=')">相 当</button>
+        <button class="gsb-btn" data-val="B" onclick="setVerdict('B')">B 更好</button>
+      </div>
+    </div>
+    <div class="eval-section">
+      <div class="field-label">场景标签</div>
+      <select class="tag-select" id="tagSelect">
+        <option>安全类</option><option>质量类</option><option>事实类</option>
+        <option>指令遵循</option><option>创意类</option><option>其他</option>
+      </select>
+    </div>
+    <div class="eval-section" style="flex:1">
+      <div class="field-label">评估备注（具体原因、差异观察、关键问题）</div>
+      <textarea class="eval-note" id="evalNote" placeholder="填写评估理由..."></textarea>
+    </div>
+    <button class="save-btn" onclick="saveRecord()">💾 保存记录</button>
+  </div>
+</div>
+
+<div class="records-panel" id="recordsPanel">
+  <div class="records-header">
+    <span class="records-title">EVAL RECORDS</span>
+    <button class="close-btn" onclick="toggleRecords()">✕</button>
+  </div>
+  <div class="records-list" id="recordsList">
+    <div class="empty-state">暂无记录<br>发送问题并保存评估后<br>记录将显示在这里</div>
+  </div>
+</div>
+
+<script>
+let records=[],currentVerdict=null,currentPrompt='',currentRespA='',currentRespB='';
+
+function updatePlaceholder(s){
+  const t=document.getElementById('type'+s).value;
+  const u=document.getElementById('url'+s);
+  u.placeholder=t==='ollama'?'http://localhost:11434':t==='openai'?'https://api.openai.com':'https://api.anthropic.com';
+}
+
+function toggleRecords(){document.getElementById('recordsPanel').classList.toggle('open');}
+
+function setVerdict(v){
+  currentVerdict=v;
+  document.querySelectorAll('.gsb-btn').forEach(b=>b.classList.remove('active-a','active-tie','active-b'));
+  const map={'A':'active-a','=':'active-tie','B':'active-b'};
+  document.querySelector(`.gsb-btn[data-val="${v}"]`).classList.add(map[v]);
+}
+
+async function callModel(side){
+  const type=document.getElementById('type'+side).value;
+  const url=(document.getElementById('url'+side).value.trim()||'').replace(/\/$/,'');
+  const model=document.getElementById('model'+side).value.trim();
+  const key=document.getElementById('key'+side).value.trim();
+  const sys=document.getElementById('sysPrompt').value.trim();
+  const prompt=currentPrompt;
+  const dot=document.getElementById('dot'+side);
+  const resp=document.getElementById('resp'+side);
+  dot.className='status-dot loading';
+  resp.textContent='';resp.classList.remove('empty');
+  let result='';
+  try{
+    if(type==='ollama'){
+      const base=url||'http://localhost:11434';
+      const msgs=[];
+      if(sys)msgs.push({role:'system',content:sys});
+      msgs.push({role:'user',content:prompt});
+      const r=await fetch(`${base}/api/chat`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:model||'llama3',messages:msgs,stream:true})});
+      if(!r.ok) throw new Error(`HTTP ${r.status}: ${await r.text()}`);
+      const reader=r.body.getReader();const dec=new TextDecoder();
+      while(true){const{done,value}=await reader.read();if(done)break;
+        const lines=dec.decode(value).trim().split('\n');
+        for(const line of lines){if(!line.trim())continue;try{const j=JSON.parse(line);if(j.message?.content){result+=j.message.content;resp.textContent=result;}}catch{}}}
+    } else if(type==='openai'){
+      const base=url||'https://api.openai.com';
+      const msgs=[];if(sys)msgs.push({role:'system',content:sys});msgs.push({role:'user',content:prompt});
+      const r=await fetch(`${base}/v1/chat/completions`,{method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${key}`},body:JSON.stringify({model:model||'gpt-4o',messages:msgs,stream:true})});
+      if(!r.ok) throw new Error(`HTTP ${r.status}: ${await r.text()}`);
+      const reader=r.body.getReader();const dec=new TextDecoder();
+      while(true){const{done,value}=await reader.read();if(done)break;
+        const lines=dec.decode(value).trim().split('\n');
+        for(const line of lines){if(!line.startsWith('data: ')||line.includes('[DONE]'))continue;try{const j=JSON.parse(line.slice(6));const content=j.choices?.[0]?.delta?.content||'';result+=content;resp.textContent=result;}catch(e){console.warn('Failed to parse OpenAI stream line:',line);}}}
+    } else {
+      const base=url||'https://api.anthropic.com';
+      const body={model:model||'claude-sonnet-4-20250514',max_tokens:2048,messages:[{role:'user',content:prompt}],stream:true};
+      if(sys)body.system=sys;
+      const headers={'Content-Type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01'};
+      const r=await fetch(`${base}/v1/messages`,{method:'POST',headers:headers,body:JSON.stringify(body)});
+      if(!r.ok) throw new Error(`HTTP ${r.status}: ${await r.text()}`);
+      const reader=r.body.getReader();const dec=new TextDecoder();
+      while(true){const{done,value}=await reader.read();if(done)break;
+        for(const line of dec.decode(value).split('\n')){if(!line.startsWith('data: '))continue;try{const j=JSON.parse(line.slice(6));if(j.delta?.text){result+=j.delta.text;resp.textContent=result;}}catch{}}}
+    }
+    dot.className='status-dot done-'+side.toLowerCase();
+  }catch(e){resp.textContent='❌ 请求失败：'+e.message;dot.className='status-dot';}
+  return result;
+}
+
+async function sendPrompt(){
+  const prompt=document.getElementById('promptInput').value.trim();
+  if(!prompt)return;
+  currentPrompt=prompt;currentRespA='';currentRespB='';currentVerdict=null;
+  document.querySelectorAll('.gsb-btn').forEach(b=>b.classList.remove('active-a','active-tie','active-b'));
+  const btn=document.getElementById('sendBtn');
+  btn.disabled=true;btn.textContent='请求中...';
+  const[a,b]=await Promise.all([callModel('A'),callModel('B')]);
+  currentRespA=a;currentRespB=b;
+  btn.disabled=false;btn.textContent='▶ 发 送';
+}
+
+function saveRecord(){
+  if(!currentPrompt){alert('请先发送一个问题');return;}
+  records.push({
+    id:Date.now(),time:new Date().toLocaleString('zh-CN'),
+    prompt:currentPrompt,
+    modelA:document.getElementById('modelA').value||'Model A',
+    modelB:document.getElementById('modelB').value||'Model B',
+    respA:currentRespA,respB:currentRespB,
+    verdict:currentVerdict||'未评估',
+    tag:document.getElementById('tagSelect').value,
+    note:document.getElementById('evalNote').value.trim()
+  });
+  updateUI();
+  document.getElementById('evalNote').value='';
+  currentVerdict=null;
+  document.querySelectorAll('.gsb-btn').forEach(b=>b.classList.remove('active-a','active-tie','active-b'));
+  const btn=document.querySelector('.save-btn');
+  btn.textContent='✓ 已保存';btn.style.cssText='border-color:var(--good);color:var(--good);';
+  setTimeout(()=>{btn.textContent='💾 保存记录';btn.style.cssText='';},1500);
+}
+
+function updateUI(){
+  document.getElementById('recordCount').textContent=`${records.length} 条记录`;
+  const list=document.getElementById('recordsList');
+  if(!records.length){list.innerHTML='<div class="empty-state">暂无记录<br>发送问题并保存评估后<br>记录将显示在这里</div>';return;}
+  const vm={'A':{cls:'verdict-a',label:'A 更好'},'=': {cls:'verdict-tie',label:'相 当'},'B':{cls:'verdict-b',label:'B 更好'},'未评估':{cls:'',label:'未评估'}};
+  list.innerHTML=[...records].reverse().map(r=>{const v=vm[r.verdict]||vm['未评估'];return`<div class="record-item"><div class="record-meta"><span class="record-tag">${r.tag}</span><span class="record-verdict ${v.cls}">${v.label}</span></div><div class="record-q">${r.prompt}</div>${r.note?`<div class="record-note">${r.note}</div>`:''}<div class="record-time">${r.time}</div></div>`;}).join('');
+}
+
+function exportCSV(){
+  if(!records.length){alert('暂无记录可导出');return;}
+  const headers=['时间','Prompt','模型A','模型A输出','模型B','模型B输出','评估结论','场景标签','备注'];
+  const vm={'A':'A更好','=':'相当','B':'B更好','未评估':'未评估'};
+  const rows=records.map(r=>[r.time,r.prompt,r.modelA,r.respA,r.modelB,r.respB,vm[r.verdict]||r.verdict,r.tag,r.note]);
+  const bom='\uFEFF';
+  const csv=bom+[headers,...rows].map(row=>row.map(c=>`"${String(c||'').replace(/"/g,'""')}"`).join(',')).join('\n');
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));
+  a.download=`模型评测记录_${new Date().toLocaleDateString('zh-CN').replace(/\//g,'-')}.csv`;
+  a.click();
+}
+
+function clearAll(){
+  if(records.length&&!confirm('确定清空所有记录？'))return;
+  records=[];currentPrompt='';currentRespA='';currentRespB='';
+  updateUI();
+  ['A','B'].forEach(s=>{
+    const r=document.getElementById('resp'+s);r.textContent='';r.classList.add('empty');
+    document.getElementById('dot'+s).className='status-dot';
+  });
+}
+</script>
+</body>
+</html>
