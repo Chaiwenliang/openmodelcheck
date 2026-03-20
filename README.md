@@ -1,4 +1,4 @@
-# modelcheck
+# opemmodelcheck
 
 模型检查评测工具：openmodelcheck
 
