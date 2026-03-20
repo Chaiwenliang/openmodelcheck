@@ -6,7 +6,12 @@
 
 v1，重点针对模型问答对测试评估相关类型；
 
+<img width="1457" height="703" alt="image" src="https://github.com/user-attachments/assets/0479a8c9-04e0-41c8-b4de-aedbefa9de91" />
+
 v2，加入模型prompt输出对比；
+
+<img width="1465" height="701" alt="image" src="https://github.com/user-attachments/assets/9b6a71ab-74ef-4163-a21e-65f993092f0e" />
+
 
 评测结果导出样例：
 [模型评测记录_2026-3-19.csv](https://github.com/user-attachments/files/26130976/_2026-3-19.csv)
